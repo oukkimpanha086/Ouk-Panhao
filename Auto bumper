@@ -1,0 +1,316 @@
+-- LocalScript (StarterPlayerScripts or inside ScreenGui)
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- === CONFIG (Live Adjustable) ===
+local ANIM_ID = "117058860640843"
+
+local Settings = {
+    PITCH_DEG = 40,
+    FORWARD_OFFSET = 0.06,
+    UP_OFFSET = 0.08
+}
+-- =================================
+
+local function getPitchRad()
+    return math.rad(Settings.PITCH_DEG)
+end
+
+-- Create UI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AnimCameraUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "SimpleTiltUI"
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.ResetOnSpawn = false  -- ← THIS FIXES THE ISSUE
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 340, 0, 320)
+mainFrame.Position = UDim2.new(0, 50, 0, 50)
+mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 12)
+corner.Parent = mainFrame
+
+-- Title Bar
+local titleBar = Instance.new("Frame")
+titleBar.Size = UDim2.new(1, 0, 0, 40)
+titleBar.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
+titleBar.BorderSizePixel = 0
+titleBar.Parent = mainFrame
+
+local titleCorner = Instance.new("UICorner", titleBar)
+titleCorner.CornerRadius = UDim.new(0, 12)
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, -120, 1, 0)
+titleLabel.Position = UDim2.new(0, 12, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "Animation Camera Lock"
+titleLabel.TextColor3 = Color3.new(1,1,1)
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextSize = 16
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Parent = titleBar
+
+-- Close Button
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 30, 0, 30)
+closeBtn.Position = UDim2.new(1, -40, 0, 5)
+closeBtn.BackgroundColor3 = Color3.fromRGB(255, 70, 70)
+closeBtn.Text = "X"
+closeBtn.TextColor3 = Color3.new(1,1,1)
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.Parent = titleBar
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
+
+-- Minimize Button
+local minBtn = Instance.new("TextButton")
+minBtn.Size = UDim2.new(0, 30, 0, 30)
+minBtn.Position = UDim2.new(1, -80, 0, 5)
+minBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+minBtn.Text = "−"
+minBtn.TextColor3 = Color3.new(1,1,1)
+minBtn.Font = Enum.Font.GothamBold
+minBtn.TextSize = 20
+minBtn.Parent = titleBar
+Instance.new("UICorner", minBtn).CornerRadius = UDim.new(0, 8)
+
+-- Content
+local content = Instance.new("Frame")
+content.Size = UDim2.new(1, 0, 1, -40)
+content.Position = UDim2.new(0, 0, 0, 40)
+content.BackgroundTransparency = 1
+content.Parent = mainFrame
+
+-- Status
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(1, -20, 0, 30)
+statusLabel.Position = UDim2.new(0, 10, 0, 5)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = "Status: Active"
+statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+statusLabel.Font = Enum.Font.Gotham
+statusLabel.TextSize = 14
+statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+statusLabel.Parent = content
+
+-- Enable/Disable Toggle
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(0, 140, 0, 40)
+toggleBtn.Position = UDim2.new(0.5, -70, 0, 40)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+toggleBtn.Text = "ENABLED"
+toggleBtn.TextColor3 = Color3.new(1,1,1)
+toggleBtn.Font = Enum.Font.GothamBold
+toggleBtn.TextSize = 16
+toggleBtn.Parent = content
+Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 10)
+
+-- Slider Function
+local function createSlider(parent, posY, labelText, min, max, default, step, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, -20, 0, 50)
+    frame.Position = UDim2.new(0, 10, 0, posY)
+    frame.BackgroundTransparency = 1
+    frame.Parent = parent
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0, 140, 0, 20)
+    label.BackgroundTransparency = 1
+    label.Text = labelText
+    label.TextColor3 = Color3.new(1,1,1)
+    label.Font = Enum.Font.GothamSemibold
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+
+    local valueLabel = Instance.new("TextLabel")
+    valueLabel.Size = UDim2.new(0, 80, 0, 20)
+    valueLabel.Position = UDim2.new(1, -80, 0, 0)
+    valueLabel.BackgroundTransparency = 1
+    valueLabel.TextColor3 = Color3.fromRGB(88, 101, 242)
+    valueLabel.Font = Enum.Font.GothamBold
+    valueLabel.TextXAlignment = Enum.TextXAlignment.Right
+    valueLabel.Parent = frame
+
+    local sliderBar = Instance.new("Frame")
+    sliderBar.Size = UDim2.new(1, 0, 0, 8)
+    sliderBar.Position = UDim2.new(0, 0, 0, 30)
+    sliderBar.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+    sliderBar.BorderSizePixel = 0
+    sliderBar.Parent = frame
+    Instance.new("UICorner", sliderBar).CornerRadius = UDim.new(0, 4)
+
+    local fill = Instance.new("Frame")
+    fill.Size = UDim2.new((default - min)/(max - min), 0, 1, 0)
+    fill.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+    fill.BorderSizePixel = 0
+    fill.Parent = sliderBar
+    Instance.new("UICorner", fill).CornerRadius = UDim.new(0, 4)
+
+    local knob = Instance.new("Frame")
+    knob.Size = UDim2.new(0, 20, 0, 20)
+    knob.Position = UDim2.new(fill.Size.X.Scale - 0.05, -10, 0, -6)
+    knob.BackgroundColor3 = Color3.new(1,1,1)
+    knob.Parent = sliderBar
+    Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+
+    local dragging = false
+
+    local function update(val)
+        val = math.clamp(val, min, max)
+        local percent = (val - min)/(max - min)
+        fill.Size = UDim2.new(percent, 0, 1, 0)
+        knob.Position = UDim2.new(percent, -10, 0, -6)
+        valueLabel.Text = string.format("%.3f", val)
+        callback(val)
+    end
+
+    sliderBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+        end
+    end)
+
+    sliderBar.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local mousePos = UserInputService:GetMouseLocation()
+            local relX = mousePos.X - sliderBar.AbsolutePosition.X
+            local percent = math.clamp(relX / sliderBar.AbsoluteSize.X, 0, 1)
+            local val = min + percent * (max - min)
+            -- Snap to step
+            val = min + math.floor((val - min)/step + 0.5) * step
+            update(val)
+        end
+    end)
+
+    update(default)
+    return update
+end
+
+-- Create Sliders
+local updatePitch = createSlider(content, 100, "Pitch (degrees)", -90, 90, Settings.PITCH_DEG, 1, function(v)
+    Settings.PITCH_DEG = v
+end)
+
+local updateForward = createSlider(content, 160, "Forward Offset (studs)", -2, 2, Settings.FORWARD_OFFSET, 0.01, function(v)
+    Settings.FORWARD_OFFSET = v
+end)
+
+local updateUp = createSlider(content, 220, "Up Offset (studs)", -2, 2, Settings.UP_OFFSET, 0.01, function(v)
+    Settings.UP_OFFSET = v
+end)
+
+-- Variables & Logic
+local isEnabled = true
+local connections = {}
+local isMinimized = false
+
+local function setEnabled(enabled)
+    isEnabled = enabled
+    toggleBtn.Text = enabled and "ENABLED" or "DISABLED"
+    toggleBtn.BackgroundColor3 = enabled and Color3.fromRGB(88, 101, 242) or Color3.fromRGB(100, 100, 100)
+    statusLabel.Text = enabled and "Status: Active - Watching animations" or "Status: Disabled"
+    statusLabel.TextColor3 = enabled and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
+
+    if not enabled then
+        for _, conn in pairs(connections) do
+            if conn.Connected then conn:Disconnect() end
+        end
+        connections = {}
+    end
+end
+
+local function isMatchAnimation(anim)
+    if not anim or not anim.AnimationId then return false end
+    return tostring(anim.AnimationId):find(ANIM_ID, 1, true) ~= nil
+end
+
+local function watchCharacter(character)
+    if not character or not isEnabled then return end
+
+    local humanoid = character:WaitForChild("Humanoid", 5)
+    if not humanoid then return end
+
+    local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
+
+    local active = {}
+
+    local conn = animator.AnimationPlayed:Connect(function(track)
+        if not isEnabled then return end
+        local anim = track.Animation
+        if نہیں isMatchAnimation(anim) then return end
+        if active[track] then return end
+        active[track] = true
+
+        local hrp = character:WaitForChild("HumanoidRootPart", 2)
+        if not hrp then return end
+
+        local renderConn
+        renderConn = RunService.RenderStepped:Connect(function()
+            if not hrp.Parent or not isEnabled then
+                if renderConn then renderConn:Disconnect() end
+                return
+            end
+
+            local lv = hrp.CFrame.LookVector
+            local flat = Vector3.new(lv.X, 0, lv.Z).Unit
+            if flat.Magnitude < 0.01 then flat = Vector3.new(0,0,-1) end
+
+            local targetPos = hrp.Position + (flat * Settings.FORWARD_OFFSET) + Vector3.new(0, Settings.UP_OFFSET, 0)
+            local cf = CFrame.new(targetPos, targetPos + flat) * CFrame.Angles(getPitchRad(), 0, 0)
+            hrp.CFrame = cf
+        end)
+
+        table.insert(connections, renderConn)
+
+        track.Stopped:Connect(function()
+            if renderConn and renderConn.Connected then renderConn:Disconnect() end
+            active[track] = nil
+        end)
+    end)
+
+    table.insert(connections, conn)
+end
+
+-- UI Events
+closeBtn.MouseButton1Click:Connect(function()
+    setEnabled(false)
+    screenGui:Destroy()
+end)
+
+minBtn.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    local target = isMinimized and UDim2.new(0, 340, 0, 40) or UDim2.new(0, 340, 0, 320)
+    TweenService:Create(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {Size = target}):Play()
+    minBtn.Text = isMinimized and "+" or "−"
+    content.Visible = not isMinimized
+end)
+
+toggleBtn.MouseButton1Click:Connect(function()
+    setEnabled(not isEnabled)
+end)
+
+-- Start
+if player.Character then watchCharacter(player.Character) end
+player.CharacterAdded:Connect(watchCharacter)
+setEnabled(true)
